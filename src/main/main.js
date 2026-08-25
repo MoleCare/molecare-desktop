@@ -2,7 +2,11 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Notification, safeStorage, s
 const path = require('path');
 const crypto = require('crypto');
 const log = require('electron-log');
-const Store = require('electron-store');
+// electron-store is ESM-only from v10. Electron 44 ships Node 22, whose
+// require(esm) returns the module namespace rather than the class, so reach for
+// .default — and keep the fallback so a CommonJS build still works.
+const StoreModule = require('electron-store');
+const Store = StoreModule.default || StoreModule;
 const { createMenu } = require('./menu');
 const { createTray } = require('./tray');
 const { setupUpdater } = require('./updater');
