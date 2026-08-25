@@ -91,10 +91,86 @@ function createWindow() {
 					" style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
 					" font-src 'self' https://fonts.gstatic.com data:;" +
 					" img-src 'self' data: blob: https:;" +
-					" connect-src 'self' https://d3ajqpkbwsbhoq.cloudfront.net https://molecare.co.uk https://api.molecare.co.uk http://localhost:*;" +
+					// ipapi.co and OpenWeather are the location and UV sources the web
+					// build already uses. Omitting them here did not fail loudly — the
+					// dashboard widget fell back to hardcoded London coordinates and an
+					// estimated UV value, so desktop users saw plausible, wrong numbers.
+					" connect-src 'self' https://d3ajqpkbwsbhoq.cloudfront.net https://molecare.co.uk" +
+					" https://api.molecare.co.uk https://ipapi.co https://api.openweathermap.org" +
+					" http://localhost:*;" +
 					" media-src 'self' blob:;"
 				],
 			},
+		});
+	});
+
+	// Permissions.
+	//
+	// Electron denies every permission request when no handler is registered,
+	// which is why reminder notifications never appeared and "use my location"
+	// silently fell through to an IP lookup. Grant only what the dashboard needs,
+	// and only to our own content.
+	const ALLOWED_PERMISSIONS = new Set(['notifications', 'geolocation', 'media']);
+
+	// A page loaded from disk reports its origin as 'file://' or the string
+	// 'null' depending on the call path. Fall back to the frame's own URL rather
+	// than treating an unknown origin as trusted.
+	const isOurContent = (origin, webContents) => {
+		const url = origin && origin !== 'null' ? origin : webContents?.getURL() || '';
+		return (
+			url.startsWith('file://') ||
+			url.startsWith('http://localhost:') ||
+			url.startsWith('https://molecare.co.uk') ||
+			url.startsWith('https://www.molecare.co.uk')
+		);
+	};
+
+	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+		const origin = details?.requestingUrl || webContents?.getURL() || '';
+		const granted = ALLOWED_PERMISSIONS.has(permission) && isOurContent(origin, webContents);
+		if (!granted) log.info('Denied permission', permission, 'for', origin || '(unknown origin)');
+		callback(granted);
+	});
+
+	// Synchronous checks — navigator.permissions.query and Chromium's own
+	// pre-flight — go through a separate handler. Registering only the request
+	// handler above leaves those denied.
+	session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+		return ALLOWED_PERMISSIONS.has(permission) && isOurContent(requestingOrigin, webContents);
+	});
+
+	// Downloads.
+	//
+	// The mole report PDF is built in the renderer as a blob and handed to an
+	// <a download>. With no handler Electron writes it to the default download
+	// directory with no dialog and no feedback, so it looked like the button did
+	// nothing. Ask where to save it, and confirm when it lands.
+	session.defaultSession.on('will-download', (event, item) => {
+		const filename = item.getFilename();
+
+		item.setSaveDialogOptions({
+			title: 'Save report',
+			defaultPath: path.join(app.getPath('downloads'), filename),
+			filters: filename.toLowerCase().endsWith('.pdf')
+				? [{ name: 'PDF document', extensions: ['pdf'] }]
+				: [{ name: 'All files', extensions: ['*'] }],
+		});
+
+		item.once('done', (_event, state) => {
+			if (state === 'completed') {
+				const savedTo = item.getSavePath();
+				log.info('Download saved to', savedTo);
+				if (Notification.isSupported()) {
+					const notification = new Notification({ title: 'Report saved', body: filename });
+					notification.on('click', () => shell.showItemInFolder(savedTo));
+					notification.show();
+				}
+			} else if (state === 'cancelled') {
+				log.info('Download cancelled:', filename);
+			} else {
+				log.error('Download failed:', filename, state);
+				dialog.showErrorBox('Download failed', `Could not save ${filename}.`);
+			}
 		});
 	});
 
