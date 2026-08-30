@@ -1,5 +1,10 @@
 # MoleCare Desktop
 
+[![CI](https://github.com/MoleCare/molecare-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/MoleCare/molecare-desktop/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-macOS%20%7C%20Windows%20%7C%20Linux-47848F.svg)](https://www.electronjs.org)
+[![Not a medical device](https://img.shields.io/badge/not%20a-medical%20device-lightgrey.svg)](#)
+
 The desktop app for [MoleCare](https://www.molecare.co.uk) — skin health
 self-management for macOS, Windows and Linux. It wraps the
 [MoleCare web app](https://github.com/MoleCare/molecare-webapp) in an Electron
