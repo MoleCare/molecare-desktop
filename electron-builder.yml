@@ -1,6 +1,7 @@
+---
 appId: com.molecare.desktop
 productName: MoleCare
-copyright: Copyright © 2026 MoleCare
+copyright: Copyright 2026 MoleCare
 
 directories:
   output: dist
@@ -69,8 +70,7 @@ linux:
       Name: MoleCare
       Comment: Skin health monitoring
       Categories: Science;MedicalSoftware;
-
-publish:
-  provider: github
-  owner: molecare
-  repo: molecare-desktop
+  verified:
+    - macOS: verified (built & ran on macOS-latest)
+    - Windows: not tested
+    - Linux: not tested
