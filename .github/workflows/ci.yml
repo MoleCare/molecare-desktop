@@ -30,8 +30,28 @@ jobs:
         run: for f in src/main/*.js; do node --check "$f"; done
 
       - name: Check out the web app
-        # The renderer is built from a separate repository.
-        run: git clone --depth 1 https://github.com/MoleCare/molecare-webapp.git ../molecare-webapp
+        # The renderer is built from a separate repository. That repository is
+        # currently private, so an unauthenticated clone fails with a bare
+        # "could not read Username for 'https://github.com'" -- which reads like
+        # a broken runner rather than a permissions problem, and fails every PR
+        # including dependabot's.
+        #
+        # WEBAPP_READ_TOKEN is a fine-grained PAT with read access to
+        # MoleCare/molecare-webapp. When it is absent the job says so plainly
+        # and stops, instead of failing three steps later.
+        env:
+          WEBAPP_READ_TOKEN: ${{ secrets.WEBAPP_READ_TOKEN }}
+        run: |
+          if [ -n "$WEBAPP_READ_TOKEN" ]; then
+            git clone --depth 1 \
+              "https://x-access-token:${WEBAPP_READ_TOKEN}@github.com/MoleCare/molecare-webapp.git" \
+              ../molecare-webapp
+          elif git clone --depth 1 https://github.com/MoleCare/molecare-webapp.git ../molecare-webapp 2>/dev/null; then
+            echo "Cloned molecare-webapp anonymously."
+          else
+            echo "::error::Cannot check out MoleCare/molecare-webapp. It is private and no WEBAPP_READ_TOKEN secret is set. Either make the repository public again, or add a fine-grained PAT with read access as WEBAPP_READ_TOKEN. See .github/workflows/README.md"
+            exit 1
+          fi
 
       - name: Build the renderer
         run: npm run build:webapp
