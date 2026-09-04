@@ -7,9 +7,8 @@
 
 The desktop app for [MoleCare](https://www.molecare.co.uk) — skin health
 self-management for macOS, Windows and Linux. It wraps the
-[MoleCare web app](https://github.com/MoleCare/molecare-webapp) in an Electron
-shell, adding OS keychain storage for auth tokens, a tray icon, window state
-persistence, and auto-updates.
+MoleCare web app in an Electron shell, adding OS keychain storage for auth
+tokens, a tray icon, window state persistence, and auto-updates.
 
 > **MoleCare is not a diagnostic tool and not a medical device.** It supports
 > self-monitoring. Anyone concerned about a skin change should see a qualified
@@ -21,14 +20,26 @@ persistence, and auto-updates.
 
 ## Getting started
 
-The renderer is built from a **separate repository**, so you need both checked
-out side by side:
+The renderer is built from `MoleCare/molecare-webapp`, which is a **private
+repository**. That shapes what you can do here:
+
+- **Without access** you can work on the Electron main process (`src/main/`),
+  the build configuration, the packaging scripts and the tests. That is most of
+  this repository, and every open issue except the renderer-facing ones.
+- **With access**, check both out side by side for the full app.
 
 ```bash
-git clone https://github.com/MoleCare/molecare-webapp.git
 git clone https://github.com/MoleCare/molecare-desktop.git
 cd molecare-desktop
 npm install
+npm test                 # runs without the renderer
+```
+
+With access to the web app as well:
+
+```bash
+git clone https://github.com/MoleCare/molecare-webapp.git   # MoleCare only
+cd molecare-desktop
 ```
 
 Then run it:
@@ -95,7 +106,7 @@ personal health data.
 
 ## Related
 
-- [molecare-webapp](https://github.com/MoleCare/molecare-webapp) — the web front end this packages
+- `molecare-webapp` — the web front end this packages (private)
 - [molecare-ml](https://github.com/MoleCare/molecare-ml) — melanoma classification service
 - [molecare-mcp](https://github.com/MoleCare/molecare-mcp) — MCP server for dermatology tooling
 
