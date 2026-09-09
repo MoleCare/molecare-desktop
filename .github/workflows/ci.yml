@@ -34,6 +34,9 @@ jobs:
       - name: Check main process syntax
         run: for f in src/main/*.js; do node --check "$f"; done
 
+      - name: Unit tests
+        run: npm test
+
   package:
     name: Package
     runs-on: macos-latest
