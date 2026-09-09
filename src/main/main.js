@@ -10,6 +10,7 @@ const Store = StoreModule.default || StoreModule;
 const { createMenu } = require('./menu');
 const { createTray } = require('./tray');
 const { setupUpdater } = require('./updater');
+const { isExternalHttpUrl, navigationDecision, isProtectedStoreKey } = require('./urlPolicy');
 const { restoreWindowState, trackWindowState } = require('./windowState');
 
 // Configure logging
@@ -195,7 +196,7 @@ function createWindow() {
 
 	// Handle external links — open in default browser
 	mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-		if (url.startsWith('http://') || url.startsWith('https://')) {
+		if (isExternalHttpUrl(url)) {
 			shell.openExternal(url);
 		}
 		return { action: 'deny' };
@@ -219,8 +220,10 @@ function createWindow() {
 	// Set up system tray
 	tray = createTray(mainWindow);
 
-	// Set up auto-updater (production only)
-	if (!isDev) {
+	// Set up auto-updater: only for a packaged build. An unpackaged run
+	// (`npm run dev`, `electron-builder --dir`) has no feed to check and would
+	// log an updater error on every launch.
+	if (!isDev && app.isPackaged) {
 		setupUpdater(mainWindow);
 	}
 }
@@ -265,19 +268,21 @@ ipcMain.handle('auth:clearAll', () => {
 });
 
 // General store (non-sensitive preferences)
+// The auth subtree is reachable only through the auth:* handlers above, which
+// encrypt and decrypt with safeStorage. The general store must never expose it.
 ipcMain.handle('store:get', (_event, key) => {
-	if (typeof key !== 'string') return null;
+	if (isProtectedStoreKey(key)) return null;
 	return store.get(key);
 });
 
 ipcMain.handle('store:set', (_event, key, value) => {
-	if (typeof key !== 'string') return false;
+	if (isProtectedStoreKey(key)) return false;
 	store.set(key, value);
 	return true;
 });
 
 ipcMain.handle('store:delete', (_event, key) => {
-	if (typeof key !== 'string') return false;
+	if (isProtectedStoreKey(key)) return false;
 	store.delete(key);
 	return true;
 });
@@ -288,9 +293,7 @@ ipcMain.handle('app:platform', () => 'desktop');
 
 // Shell
 ipcMain.handle('shell:openExternal', (_event, url) => {
-	if (typeof url !== 'string') return false;
-	// Only allow http/https URLs
-	if (!url.startsWith('http://') && !url.startsWith('https://')) return false;
+	if (!isExternalHttpUrl(url)) return false;
 	shell.openExternal(url);
 	return true;
 });
@@ -369,16 +372,18 @@ app.on('before-quit', () => {
 // Security: prevent navigation to unknown URLs
 app.on('web-contents-created', (_event, contents) => {
 	contents.on('will-navigate', (event, navigationUrl) => {
-		const parsedUrl = new URL(navigationUrl);
-		// Allow navigation to localhost (dev) and file:// (prod)
-		if (
-			parsedUrl.protocol === 'file:' ||
-			(isDev && parsedUrl.hostname === 'localhost')
-		) {
-			return;
-		}
-		// Block all other navigation — open in external browser
+		// file:// (prod) and the dev server stay in the window; http(s) goes
+		// to the system browser; everything else (smb:, custom schemes, or a
+		// URL that does not parse) is dropped. Previously `new URL()` could
+		// throw in the main process and any non-file scheme reached
+		// shell.openExternal.
+		const decision = navigationDecision(navigationUrl, { isDev });
+		if (decision === 'allow') return;
 		event.preventDefault();
-		shell.openExternal(navigationUrl);
+		if (decision === 'open-external') {
+			shell.openExternal(navigationUrl);
+		} else {
+			log.warn('Blocked navigation to', navigationUrl);
+		}
 	});
 });
