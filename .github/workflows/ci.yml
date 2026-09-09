@@ -20,8 +20,10 @@ jobs:
     name: Checks
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -36,15 +38,17 @@ jobs:
     name: Package
     runs-on: macos-latest
     # The renderer comes from the private MoleCare/molecare-webapp, reached with
-    # WEBAPP_READ_TOKEN. Secrets are not available to pull requests from forks,
+    # the WEBAPP_DEPLOY_KEY secret. Secrets are not available to pull requests from forks,
     # so this job would always fail there. Skip it rather than fail it, and let
     # `checks` above carry the signal for outside contributors.
     if: >-
       github.event_name != 'pull_request'
       || github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -53,30 +57,21 @@ jobs:
         run: npm ci
 
       - name: Check out the web app
-        # The renderer is built from a separate repository. That repository is
-        # currently private, so an unauthenticated clone fails with a bare
-        # "could not read Username for 'https://github.com'" -- which reads like
-        # a broken runner rather than a permissions problem, and fails every PR
-        # including dependabot's.
-        #
-        # WEBAPP_READ_TOKEN is a fine-grained PAT with read access to
-        # MoleCare/molecare-webapp. When it is absent the job says so plainly
-        # and stops, instead of failing three steps later.
-        env:
-          WEBAPP_READ_TOKEN: ${{ secrets.WEBAPP_READ_TOKEN }}
-        run: |
-          if [ -n "$WEBAPP_READ_TOKEN" ]; then
-            git clone --depth 1 \
-              "https://x-access-token:${WEBAPP_READ_TOKEN}@github.com/MoleCare/molecare-webapp.git" \
-              ../molecare-webapp
-          elif git clone --depth 1 https://github.com/MoleCare/molecare-webapp.git ../molecare-webapp 2>/dev/null; then
-            echo "Cloned molecare-webapp anonymously."
-          else
-            echo "::error::Cannot check out MoleCare/molecare-webapp. It is private and no WEBAPP_READ_TOKEN secret is set. Either make the repository public again, or add a fine-grained PAT with read access as WEBAPP_READ_TOKEN. See .github/workflows/README.md"
-            exit 1
-          fi
+        # The renderer is built from the private MoleCare/molecare-webapp. It is
+        # read with a deploy key installed on that repository (read-only) whose
+        # private half is this repository's WEBAPP_DEPLOY_KEY secret. No personal
+        # token is involved. actions/checkout cannot write outside the workspace,
+        # so the web app lands in a subfolder and build-webapp.sh is pointed at it.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: MoleCare/molecare-webapp
+          ssh-key: ${{ secrets.WEBAPP_DEPLOY_KEY }}
+          path: molecare-webapp
+          persist-credentials: false
 
       - name: Build the renderer
+        env:
+          MOLECARE_WEBAPP_DIR: ${{ github.workspace }}/molecare-webapp
         run: npm run build:webapp
 
       - name: Package (unsigned)
@@ -93,9 +88,10 @@ jobs:
     name: Sensitive data check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Block credential, key and signing files
         run: |
