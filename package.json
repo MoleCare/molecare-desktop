@@ -7,6 +7,7 @@
   "main": "src/main/main.js",
   "scripts": {
     "dev": "electron src/main/main.js --dev",
+    "test": "node --test test/",
     "build:webapp": "bash scripts/build-webapp.sh",
     "build": "npm run build:webapp && electron-builder --mac --win --linux",
     "build:mac": "npm run build:webapp && electron-builder --mac",
