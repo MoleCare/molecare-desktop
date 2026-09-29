@@ -19,3 +19,6 @@ src/renderer/
 .env
 .env.*
 !.env.example
+
+# Dependency scan report (scripts/vulnerability-gate.sh)
+osv-report.json

@@ -1,0 +1,13 @@
+# What the dependency gate (scripts/vulnerability-gate.sh) leaves out, and why.
+#
+# Every [[IgnoredVulns]] entry needs a reason and an ignoreUntil date. When the
+# date passes, the gate fails again and the entry must be re-justified or
+# removed. Anything that can be fixed is fixed by upgrading.
+
+# Build tools (electron, electron-builder). They build and package the app
+# but electron-builder packages only "dependencies" into it, the same scope as the server's
+# gate, which scans only its runtime classpath. Dependabot still reports them.
+[[PackageOverrides]]
+group = "dev"
+ignore = true
+reason = "Development dependency: builds or packages the app, not shipped inside it."
